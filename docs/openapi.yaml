@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: BiblioWeb API
+  description: API REST de la biblioteca virtual interactiva BiblioWeb.
+  version: 0.1.0
+servers:
+  - url: http://127.0.0.1:5000
+    description: Servidor de desarrollo local
+tags:
+  - name: Sistema
+    description: Endpoints de verificacion del servicio
+  - name: Autenticacion
+    description: Registro e inicio de sesion de usuarios
+  - name: Libros
+    description: Consulta del catalogo de libros
+paths:
+  /health:
+    get:
+      tags: [Sistema]
+      summary: Verifica el estado del servicio
+      responses:
+        "200":
+          description: El servicio responde correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/auth/register:
+    post:
+      tags: [Autenticacion]
+      summary: Registra un nuevo usuario lector
+      responses:
+        "201":
+          description: Usuario creado correctamente
+  /api/auth/login:
+    post:
+      tags: [Autenticacion]
+      summary: Inicia sesion y devuelve un token JWT
+      responses:
+        "200":
+          description: Autenticacion exitosa
+  /api/libros:
+    get:
+      tags: [Libros]
+      summary: Lista el catalogo de libros disponibles
+      responses:
+        "200":
+          description: Listado de libros
+components:
+  schemas:
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: biblioweb-backend
+        version:
+          type: string
+          example: 0.1.0
