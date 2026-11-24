@@ -1,0 +1,50 @@
+# Backend Flask: 2 replicas detras de un Service (balanceo de carga)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: biblioweb
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: backend }
+  template:
+    metadata:
+      labels: { app: backend }
+    spec:
+      containers:
+        - name: backend
+          image: biblioweb-backend:1.0     # imagen construida con docker compose build
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - secretRef:
+                name: biblioweb-secret
+          env:
+            - name: DATABASE_URL
+              value: "mysql+pymysql://$(MYSQL_USER):$(MYSQL_PASSWORD)@mysql:3306/$(MYSQL_DATABASE)?charset=utf8mb4"
+            - name: CORS_ORIGINS
+              value: "http://localhost:30080"
+          readinessProbe:
+            httpGet: { path: /health, port: 5000 }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 5000 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: biblioweb
+spec:
+  selector: { app: backend }
+  ports:
+    - port: 5000
+      targetPort: 5000

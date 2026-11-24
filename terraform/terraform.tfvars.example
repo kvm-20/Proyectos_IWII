@@ -1,0 +1,8 @@
+# Copie este archivo como terraform.tfvars y cambie las claves.
+mysql_password      = "cambie-esta-clave-mysql"
+mysql_root_password = "cambie-esta-clave-root"
+jwt_secret_key      = "cambie-esta-clave-jwt-de-al-menos-32-caracteres"
+secret_key          = "cambie-esta-clave-secreta-larga"
+
+# Si usa Linux o Mac descomente esta linea:
+# docker_host = "unix:///var/run/docker.sock"

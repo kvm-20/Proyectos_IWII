@@ -1,0 +1,213 @@
+{
+  "info": {
+    "name": "BiblioWeb API",
+    "description": "Coleccion de pruebas manuales de la API de BiblioWeb. Ejecute primero 'Registrar usuario' o 'Iniciar sesion': el token se guarda solo en la variable {{token}}.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:5000" },
+    { "key": "token", "value": "" },
+    { "key": "libroId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Sistema",
+      "item": [
+        {
+          "name": "Estado del servicio",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('El estado es ok', function () { pm.expect(pm.response.json().status).to.eql('ok'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Autenticacion",
+      "item": [
+        {
+          "name": "Registrar usuario",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Karen Vargas\",\n  \"correo\": \"karen@biblioweb.com\",\n  \"contrasena\": \"biblioweb2026\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('token', pm.response.json().token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Iniciar sesion",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"karen@biblioweb.com\",\n  \"contrasena\": \"biblioweb2026\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Devuelve token', function () { pm.expect(pm.response.json().token).to.be.a('string'); });",
+                  "pm.collectionVariables.set('token', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mi perfil",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+          }
+        },
+        {
+          "name": "Mi perfil sin token (debe fallar)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Rechaza sin token', function () { pm.response.to.have.status(401); });"]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Libros",
+      "item": [
+        {
+          "name": "Listar catalogo",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/libros", "host": ["{{baseUrl}}"], "path": ["api", "libros"] }
+          }
+        },
+        {
+          "name": "Buscar por titulo o autor",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/libros?buscar=soledad",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "libros"],
+              "query": [{ "key": "buscar", "value": "soledad" }]
+            }
+          }
+        },
+        {
+          "name": "Detalle de un libro",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/libros/{{libroId}}", "host": ["{{baseUrl}}"], "path": ["api", "libros", "{{libroId}}"] }
+          }
+        },
+        {
+          "name": "Crear libro (solo admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Libro nuevo\",\n  \"autor\": \"Autor de prueba\",\n  \"categoria\": \"Tecnologia\",\n  \"anio\": 2026,\n  \"paginas\": 250\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/libros", "host": ["{{baseUrl}}"], "path": ["api", "libros"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resenas y progreso",
+      "item": [
+        {
+          "name": "Listar resenas de un libro",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/libros/{{libroId}}/resenas", "host": ["{{baseUrl}}"], "path": ["api", "libros", "{{libroId}}", "resenas"] }
+          }
+        },
+        {
+          "name": "Publicar resena",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"calificacion\": 5,\n  \"comentario\": \"Una lectura imprescindible.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/libros/{{libroId}}/resenas", "host": ["{{baseUrl}}"], "path": ["api", "libros", "{{libroId}}", "resenas"] }
+          }
+        },
+        {
+          "name": "Actualizar progreso de lectura",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pagina_actual\": 120,\n  \"estado\": \"leyendo\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/libros/{{libroId}}/progreso", "host": ["{{baseUrl}}"], "path": ["api", "libros", "{{libroId}}", "progreso"] }
+          }
+        },
+        {
+          "name": "Mis libros",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/progreso", "host": ["{{baseUrl}}"], "path": ["api", "progreso"] }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+# Volumen persistente: los datos sobreviven aunque el pod se reinicie.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: datos-postgres
+  namespace: biblioweb
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  namespace: biblioweb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: biblioweb-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: biblioweb-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: biblioweb-secret
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: datos
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "biblioweb", "-d", "biblioweb"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: datos
+          persistentVolumeClaim:
+            claimName: datos-postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: biblioweb
+spec:
+  selector:
+    app: db
+  ports:
+    - port: 5432
+      targetPort: 5432

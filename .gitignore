@@ -1,8 +1,33 @@
+# Entorno virtual
 .venv/
+
+# Cache de Python
 __pycache__/
 *.pyc
+
+# Variables de entorno (credenciales)
 .env
+
+# Base de datos local de desarrollo
+instance/
+
+# Cache de pruebas
 .pytest_cache/
+
+# Configuracion local del editor
 .vscode/
+
+# Sistema operativo
+Thumbs.db
+.DS_Store
+
+# Dependencias y compilados del frontend
 node_modules/
 dist/
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/terraform.tfvars
+terraform/.terraform.lock.hcl

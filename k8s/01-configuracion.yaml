@@ -1,0 +1,25 @@
+# ConfigMap: parametros no sensibles de la aplicacion.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: biblioweb-config
+  namespace: biblioweb
+data:
+  FLASK_DEBUG: "0"
+  CORS_ORIGINS: "http://localhost:30080"
+  POSTGRES_DB: biblioweb
+  POSTGRES_USER: biblioweb
+---
+# Secret: datos sensibles. Kubernetes los entrega al contenedor como
+# variables de entorno, sin que queden escritos en el codigo.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: biblioweb-secret
+  namespace: biblioweb
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: biblioweb2026
+  SECRET_KEY: clave-de-demostracion-academica
+  JWT_SECRET_KEY: clave-jwt-de-demostracion-academica
+  DATABASE_URL: postgresql+psycopg://biblioweb:biblioweb2026@db:5432/biblioweb

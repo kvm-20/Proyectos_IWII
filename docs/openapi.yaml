@@ -1,62 +1,407 @@
 openapi: 3.0.3
 info:
   title: BiblioWeb API
-  description: API REST de la biblioteca virtual interactiva BiblioWeb.
-  version: 0.1.0
+  description: |
+    API REST de la biblioteca virtual interactiva BiblioWeb.
+    Autenticación: enviar el encabezado `Authorization: Bearer <token>` obtenido en /api/auth/login.
+  version: 1.0.0
 servers:
   - url: http://127.0.0.1:5000
     description: Servidor de desarrollo local
+  - url: http://localhost:8080
+    description: Docker Compose (a través del proxy de Nginx)
 tags:
   - name: Sistema
-    description: Endpoints de verificacion del servicio
   - name: Autenticacion
-    description: Registro e inicio de sesion de usuarios
   - name: Libros
-    description: Consulta del catalogo de libros
+  - name: Resenas
+  - name: MiBiblioteca
+
 paths:
   /health:
     get:
       tags: [Sistema]
-      summary: Verifica el estado del servicio
+      summary: Verifica el estado del servicio y de la base de datos
       responses:
         "200":
           description: El servicio responde correctamente
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Health"
+              schema: { $ref: "#/components/schemas/Health" }
+
   /api/auth/register:
     post:
       tags: [Autenticacion]
       summary: Registra un nuevo usuario lector
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegistroInput" }
       responses:
-        "201":
-          description: Usuario creado correctamente
+        "201": { description: Usuario creado correctamente }
+        "400": { $ref: "#/components/responses/PeticionMalFormada" }
+        "409": { description: El correo ya está registrado }
+        "422": { $ref: "#/components/responses/DatosInvalidos" }
+
   /api/auth/login:
     post:
       tags: [Autenticacion]
-      summary: Inicia sesion y devuelve un token JWT
+      summary: Inicia sesión y devuelve un token JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginInput" }
       responses:
         "200":
-          description: Autenticacion exitosa
+          description: Autenticación exitosa
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoginRespuesta" }
+        "401": { description: Correo o contraseña incorrectos }
+        "422": { $ref: "#/components/responses/DatosInvalidos" }
+
+  /api/auth/me:
+    get:
+      tags: [Autenticacion]
+      summary: Devuelve el usuario de la sesión actual
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Usuario actual
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+
   /api/libros:
     get:
       tags: [Libros]
-      summary: Lista el catalogo de libros disponibles
+      summary: Lista el catálogo con búsqueda, filtros, orden y paginación
+      parameters:
+        - { name: q, in: query, schema: { type: string }, description: Busca en título y autor }
+        - { name: categoria, in: query, schema: { type: string } }
+        - { name: autor, in: query, schema: { type: string } }
+        - name: orden
+          in: query
+          schema: { type: string, enum: [titulo, autor, anio, recientes, calificacion], default: titulo }
+        - name: direccion
+          in: query
+          schema: { type: string, enum: [asc, desc], default: asc }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
         "200":
-          description: Listado de libros
+          description: Página de libros
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Libro" }
+                  paginacion: { $ref: "#/components/schemas/Paginacion" }
+        "400": { $ref: "#/components/responses/PeticionMalFormada" }
+    post:
+      tags: [Libros]
+      summary: Crea un libro (solo administrador)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LibroInput" }
+      responses:
+        "201": { description: Libro creado }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/Prohibido" }
+        "409": { description: Ya existe un libro con ese título y autor }
+        "422": { $ref: "#/components/responses/DatosInvalidos" }
+
+  /api/libros/categorias:
+    get:
+      tags: [Libros]
+      summary: Lista las categorías existentes
+      responses:
+        "200": { description: Arreglo de categorías }
+
+  /api/libros/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/LibroId" }
+    get:
+      tags: [Libros]
+      summary: Detalle de un libro con su calificación promedio
+      responses:
+        "200":
+          description: Libro
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Libro" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+    put:
+      tags: [Libros]
+      summary: Actualiza un libro (solo administrador)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LibroInput" }
+      responses:
+        "200": { description: Libro actualizado }
+        "403": { $ref: "#/components/responses/Prohibido" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+        "422": { $ref: "#/components/responses/DatosInvalidos" }
+    delete:
+      tags: [Libros]
+      summary: Elimina un libro (solo administrador)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Libro eliminado }
+        "403": { $ref: "#/components/responses/Prohibido" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+
+  /api/libros/{id}/contenido:
+    get:
+      tags: [Libros]
+      summary: Contenido del libro para el visor de lectura (requiere sesión)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/LibroId" }
+      responses:
+        "200": { description: Libro con el campo contenido }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+
+  /api/libros/{id}/resenas:
+    parameters:
+      - { $ref: "#/components/parameters/LibroId" }
+    get:
+      tags: [Resenas]
+      summary: Lista las reseñas de un libro (filtro por calificación mínima y orden)
+      parameters:
+        - { name: min, in: query, schema: { type: integer, minimum: 1, maximum: 5 } }
+        - name: orden
+          in: query
+          schema: { type: string, enum: [recientes, calificacion], default: recientes }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200": { description: Página de reseñas }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+    post:
+      tags: [Resenas]
+      summary: Publica una reseña (una por usuario y libro)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResenaInput" }
+      responses:
+        "201": { description: Reseña creada }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "409": { description: El usuario ya reseñó este libro }
+        "422": { $ref: "#/components/responses/DatosInvalidos" }
+
+  /api/resenas/{id}:
+    delete:
+      tags: [Resenas]
+      summary: Elimina una reseña (dueño o administrador)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Reseña eliminada }
+        "403": { $ref: "#/components/responses/Prohibido" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+
+  /api/mi-biblioteca:
+    get:
+      tags: [MiBiblioteca]
+      summary: Lista personal del lector (favoritos, leyendo, leídos) con progreso
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: estado
+          in: query
+          schema: { type: string, enum: [pendiente, leyendo, leido] }
+        - name: favorito
+          in: query
+          schema: { type: string, enum: ["true", "false"] }
+      responses:
+        "200": { description: Arreglo de lecturas }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+
+  /api/mi-biblioteca/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/LibroId" }
+    get:
+      tags: [MiBiblioteca]
+      summary: Progreso del usuario en un libro (null si no lo ha agregado)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Lectura o null }
+    put:
+      tags: [MiBiblioteca]
+      summary: Agrega el libro o actualiza estado, favorito y progreso
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LecturaInput" }
+      responses:
+        "200": { description: Lectura guardada }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+        "422": { $ref: "#/components/responses/DatosInvalidos" }
+    delete:
+      tags: [MiBiblioteca]
+      summary: Quita el libro de la biblioteca personal
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Eliminado }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    LibroId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 50, default: 8 }
+
+  responses:
+    PeticionMalFormada:
+      description: 400 - La petición está mal formada (no es JSON o parámetro no numérico)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NoAutenticado:
+      description: 401 - Falta el token JWT o es inválido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Prohibido:
+      description: 403 - El usuario no tiene permiso
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NoEncontrado:
+      description: 404 - El recurso no existe
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    DatosInvalidos:
+      description: 422 - Los datos no cumplen las reglas de validación
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
   schemas:
     Health:
       type: object
       properties:
-        status:
-          type: string
-          example: ok
-        service:
-          type: string
-          example: biblioweb-backend
-        version:
-          type: string
-          example: 0.1.0
+        status: { type: string, example: ok }
+        service: { type: string, example: biblioweb-backend }
+        version: { type: string, example: 1.0.0 }
+        database: { type: string, example: ok }
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            codigo: { type: integer, example: 422 }
+            mensaje: { type: string, example: Los datos enviados no son válidos }
+            detalles:
+              type: object
+              additionalProperties: { type: string }
+              example: { email: El correo no tiene un formato válido }
+    Usuario:
+      type: object
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        email: { type: string }
+        rol: { type: string, enum: [lector, admin] }
+    RegistroInput:
+      type: object
+      required: [nombre, email, password]
+      properties:
+        nombre: { type: string, example: Karen Vargas }
+        email: { type: string, example: karen@correo.com }
+        password: { type: string, minLength: 6, example: clave123 }
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, example: lector@biblioweb.com }
+        password: { type: string, example: Lector123* }
+    LoginRespuesta:
+      type: object
+      properties:
+        access_token: { type: string }
+        usuario: { $ref: "#/components/schemas/Usuario" }
+    Libro:
+      type: object
+      properties:
+        id: { type: integer }
+        titulo: { type: string }
+        autor: { type: string }
+        categoria: { type: string }
+        anio: { type: integer }
+        idioma: { type: string }
+        descripcion: { type: string }
+        url_externa: { type: string }
+        calificacion_promedio: { type: number, example: 4.5 }
+        total_resenas: { type: integer }
+    LibroInput:
+      type: object
+      required: [titulo, autor, categoria]
+      properties:
+        titulo: { type: string }
+        autor: { type: string }
+        categoria: { type: string }
+        anio: { type: integer }
+        idioma: { type: string }
+        descripcion: { type: string }
+        contenido: { type: string, description: Párrafos separados por una línea en blanco }
+        url_externa: { type: string }
+    ResenaInput:
+      type: object
+      required: [calificacion]
+      properties:
+        calificacion: { type: integer, minimum: 1, maximum: 5 }
+        comentario: { type: string }
+    LecturaInput:
+      type: object
+      properties:
+        estado: { type: string, enum: [pendiente, leyendo, leido] }
+        favorito: { type: boolean }
+        pagina_actual: { type: integer, minimum: 0 }
+        total_paginas: { type: integer, minimum: 1 }
+    Paginacion:
+      type: object
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        paginas: { type: integer }
+        tiene_siguiente: { type: boolean }
+        tiene_anterior: { type: boolean }

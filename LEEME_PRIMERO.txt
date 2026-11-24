@@ -1,0 +1,162 @@
+===========================================================
+BIBLIOWEB - SESIONES 4 A 11
+Que hacer con esta carpeta, paso a paso
+===========================================================
+
+QUE ES ESTO
+-----------
+Son todos los archivos nuevos y actualizados del proyecto,
+organizados igual que tu carpeta Proyectos_IWII.
+
+COMO INSTALARLOS (una sola vez)
+-------------------------------
+1. Descomprime este ZIP.
+2. Copia TODO el contenido dentro de:
+      C:\Ingenieria_Web_II\Proyectos_IWII
+3. Cuando Windows pregunte si reemplaza archivos, di que SI.
+   (Se reemplazan app/__init__.py, app/config.py, run.py,
+   .gitignore, requirements.txt y los archivos del frontend.)
+
+Lo que NO se toca: tu carpeta .venv, node_modules,
+package.json ni el resto de la configuracion de Vite.
+
+===========================================================
+SESION 4 - BASE DE DATOS
+===========================================================
+Terminal en la raiz del proyecto, con el entorno activado:
+
+   .\.venv\Scripts\Activate.ps1
+   pip install -r requirements.txt
+   python seed.py
+   python run.py
+
+Prueba en el navegador:  http://127.0.0.1:5000/api/libros
+Debe salir una lista con 8 libros.
+
+===========================================================
+SESION 5 - LOGIN CON JWT
+===========================================================
+Ya quedo instalado en el paso anterior. Solo hay que probarlo.
+
+Con el servidor corriendo, en OTRA terminal:
+
+   curl -X POST http://127.0.0.1:5000/api/auth/login ^
+     -H "Content-Type: application/json" ^
+     -d "{\"correo\":\"karen@biblioweb.com\",\"contrasena\":\"lector2026\"}"
+
+Debe devolver un "token". Ese token es el que usa el frontend.
+
+Usuarios que crea seed.py:
+   admin@biblioweb.com  /  admin2026    (administrador)
+   karen@biblioweb.com  /  lector2026   (lectora)
+
+===========================================================
+SESION 6 - SEGURIDAD
+===========================================================
+No hay que ejecutar nada: la seguridad ya esta en el codigo
+(validaciones, limpieza de textos, cabeceras HTTP y errores
+en JSON). Se comprueba con las pruebas de la Sesion 7.
+
+===========================================================
+SESION 7 - PRUEBAS Y DOCUMENTACION
+===========================================================
+Pruebas automaticas (con el servidor APAGADO):
+
+   pytest -v
+
+Deben pasar las 23 pruebas.
+
+Documentacion interactiva (con el servidor encendido):
+
+   http://127.0.0.1:5000/docs
+
+Postman: abre Postman -> Import -> arrastra el archivo
+   docs/BiblioWeb.postman_collection.json
+
+===========================================================
+SESION 8 - TALLER INTEGRADOR (frontend completo)
+===========================================================
+   cd frontend
+   npm run dev
+
+Abre http://localhost:5173
+Inicia sesion con karen@biblioweb.com / lector2026 y prueba:
+buscar libros, abrir uno, calificarlo y guardar el progreso.
+
+Si el frontend no conecta, revisa que exista el archivo
+frontend/.env con esta linea:
+   VITE_API_URL=http://127.0.0.1:5000
+
+===========================================================
+SESION 9 - NUBE
+===========================================================
+No se ejecuta nada. Es la parte conceptual (IaaS, PaaS, SaaS)
+y la preparacion del proyecto para la nube: configuracion por
+variables de entorno (.env.example) y servidor gunicorn.
+
+===========================================================
+SESION 10 - DOCKER
+===========================================================
+Necesitas Docker Desktop instalado y abierto.
+
+Desde la raiz del proyecto:
+
+   docker compose up --build
+
+Espera a que diga "Listening at: http://0.0.0.0:5000".
+Luego, en otra terminal, carga los datos de ejemplo:
+
+   docker compose exec backend python seed.py
+
+Abre:  http://localhost:8080
+
+Para apagarlo todo:
+   docker compose down
+
+Para borrar tambien la base de datos:
+   docker compose down -v
+
+===========================================================
+SESION 11 - KUBERNETES
+===========================================================
+Antes: en Docker Desktop entra a Settings -> Kubernetes y
+activa "Enable Kubernetes". Espera a que quede en verde.
+
+1) Construir las dos imagenes:
+
+   docker build -t biblioweb-backend:1.0 .
+   docker build -t biblioweb-frontend:1.0 ./frontend
+
+2) Desplegar:
+
+   kubectl apply -f k8s/
+
+3) Ver que todo quede corriendo (repite hasta ver Running):
+
+   kubectl get pods -n biblioweb
+
+4) Cargar los datos de ejemplo:
+
+   kubectl exec -n biblioweb deploy/backend -- python seed.py
+
+5) Abrir:  http://localhost:30080
+
+Comandos utiles para la sustentacion:
+   kubectl get all -n biblioweb
+   kubectl logs -n biblioweb deploy/backend
+   kubectl scale -n biblioweb deploy/backend --replicas=3
+   kubectl delete -f k8s/      (para borrar todo)
+
+===========================================================
+COMMITS SUGERIDOS (uno por sesion)
+===========================================================
+   git add .
+   git commit -m "Sesion 4: persistencia de datos con SQLAlchemy"
+   git commit -m "Sesion 5: autenticacion y autorizacion con JWT"
+   git commit -m "Sesion 6: seguridad web y validacion de entradas"
+   git commit -m "Sesion 7: pruebas automaticas y documentacion Swagger"
+   git commit -m "Sesion 8: taller integrador backend y frontend"
+   git commit -m "Sesion 9: preparacion para despliegue en la nube"
+   git commit -m "Sesion 10: contenedores con Docker y Docker Compose"
+   git commit -m "Sesion 11: orquestacion con Kubernetes"
+   git push
